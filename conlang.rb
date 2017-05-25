@@ -1,3 +1,4 @@
+require './consonant.rb'
 require './english.rb'
 require './word_dictionary.rb'
 
@@ -7,68 +8,6 @@ class Integer
   # RELEASE THE MONKEYS!
   def commafy
     self.to_s.reverse.gsub(/...(?=.)/,'\&,').reverse
-  end
-end
-
-class Consonant
-  CONSONANTS = {
-    b:  {char: 'B', alts: ['P']},
-    bl: {char: 'BL', alts: ['PL', 'BR', 'PR']},
-
-    f:  {char: 'F', alts: ['V']},
-    fl: {char: 'FL', alts: ['FR']},
-
-    s:  {char: 'S'},
-    # z:  {char: 'Z'},
-    st: {char: 'ST'},
-    sk: {char: 'SK'},
-    sl: {char: 'SL'},
-    sp: {char: 'SP'},
-    sw: {char: 'SW'},
-
-    g:  {char: 'G'},
-    k:  {char: 'K'},
-    gl: {char: 'GL', alts: ['GR']},
-    kl: {char: 'KL', alts: ['KR']},
-
-    j:  {char: 'J', alts: ['ZH']},
-    sh: {char: 'SH'},
-    ch: {char: 'CH'},
-    d:  {char: 'D'},
-    t:  {char: 'T'},
-
-    h:  {char: 'H'},
-    l:  {char: 'L', alts: ['R']},
-    m:  {char: 'M'},
-    n:  {char: 'N'},
-    th: {char: 'TH'},
-    w:  {char: 'W'},
-    y:  {char: 'Y'},
-  }
-
-  def self.keys
-    CONSONANTS.keys.sort
-  end
-
-  def self.[](key)
-    CONSONANTS[key]
-  end
-
-  def self.count
-    CONSONANTS.keys.count
-  end
-
-  def self.sample
-    CONSONANTS[CONSONANTS.keys.sample]
-  end
-
-  def self.band(first_key, last_key)
-    raise ArgumentError unless keys.include?(first_key) && keys.include?(last_key)
-    keys[keys.index(first_key)..keys.index(last_key)]
-  end
-
-  def self.phonemes_for(key)
-    Vowel.keys.map{ |v| CONSONANTS[key][:char] + Vowel[v][:char] }
   end
 end
 
@@ -108,9 +47,10 @@ class Vowel
 end
 
 class Phoneme
-  attr_reader :to_s, :index, :widge
+  attr_reader :to_s, :index, :widge, :consonant, :vowel
 
   def initialize(consonant, vowel)
+    @consonant, @vowel = consonant, vowel
     @to_s = consonant[:char] + vowel[:char]
     @index = Phoneme.index_of(@to_s)
   end
@@ -128,7 +68,7 @@ class Phoneme
   end
 
   def self.[](index)
-    self.all[index]
+    self.new(self.all[index].consonant, self.all[index].vowel)
   end
 
   def self.index_of(widge)
@@ -149,20 +89,20 @@ class Word
   def initialize(first, second = nil, third = nil)
     if second.nil? && third.nil?
       if first.kind_of?(String)
-        @to_s = first
-        @msp, @cp, @lsp = first.split('-')
+        return Word.new(*first.split('-'))
       elsif first.kind_of?(Fixnum)
         return self.at(first)
       end
     else
       @to_s = [first, second, third].join('-')
-      @msp, @cp, @lsp = first, second, third
+      @msp, @cp, @lsp = *([first, second, third].map { |pl| Phoneme[Phoneme.index_of(pl)] })
     end
 
-    puts self.inspect
     @index = (Phoneme.index_of(@msp) * (Phoneme.count ** 2)) +
              (Phoneme.index_of(@cp) * Phoneme.count) +
              Phoneme.index_of(@lsp)
+
+    return self
   end
 
   def self.space
@@ -203,13 +143,11 @@ class Word
 
     digit_stack = ([0, 0, 0] + digit_stack)[-3..-1]
 
-    puts digit_stack.join(' ')
-    puts digit_stack.map{ |v| Phoneme[v] }.join('-')
-    digit_stack.map{ |v| Phoneme[v] }.join('-')
+    Word.new *digit_stack.map{ |v| Phoneme[v] }
   end
 
-  def to_sigil
-    # @msp, @cp, @lsp = @msp, @cp, @lsp
+  def to_sigils
+    [@msp, @cp, @lsp].map { |p| p.to_sigil }
   end
 
   def to(language)
@@ -329,5 +267,5 @@ def dump
 
   puts Word.sample_table
 
-  puts Word.sample.to_sigil
+  puts Word.sample.to_sigils
 end
